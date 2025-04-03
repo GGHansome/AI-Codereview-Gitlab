@@ -32,10 +32,12 @@ class BaseReviewer(abc.ABC):
 
                 system_prompt = render_template(prompts["system_prompt"])
                 user_prompt = render_template(prompts["user_prompt"])
+                system_prompt_github = render_template(prompts["system_prompt_github"])
 
                 return {
                     "system_message": {"role": "system", "content": system_prompt},
                     "user_message": {"role": "user", "content": user_prompt},
+                    "system_message_github": {"role": "system", "content": system_prompt_github},
                 }
         except (FileNotFoundError, KeyError, yaml.YAMLError) as e:
             logger.error(f"加载提示词配置失败: {e}")
@@ -44,7 +46,10 @@ class BaseReviewer(abc.ABC):
     def call_llm(self, messages: List[Dict[str, Any]]) -> str:
         """调用 LLM 进行代码审核"""
         logger.info(f"向 AI 发送代码 Review 请求, messages: {messages}")
-        review_result = self.client.completions(messages=messages)
+        if self.client.provider == "openai":
+            review_result = self.client.completions_parse(messages=messages)
+        else:
+            review_result = self.client.completions(messages=messages)
         logger.info(f"收到 AI 返回结果: {review_result}")
         return review_result
 
@@ -60,7 +65,7 @@ class CodeReviewer(BaseReviewer):
     def __init__(self):
         super().__init__("code_review_prompt")
 
-    def review_and_strip_code(self, changes_text: str, commits_text: str = "") -> str:
+    def review_and_strip_code(self, changes_text: str, commits_text: str = "", project_name: str = "") -> str:
         """
         Review判断changes_text超出取前REVIEW_MAX_TOKENS个token，超出则截断changes_text，
         调用review_code方法，返回review_result，如果review_result是markdown格式，则去掉头尾的```
@@ -80,15 +85,24 @@ class CodeReviewer(BaseReviewer):
         if tokens_count > review_max_tokens:
             changes_text = truncate_text_by_tokens(changes_text, review_max_tokens)
 
-        review_result = self.review_code(changes_text, commits_text).strip()
-        if review_result.startswith("```markdown") and review_result.endswith("```"):
-            return review_result[11:-3].strip()
+        review_result = self.review_code(changes_text, commits_text, project_name)
+        if self.client.provider == "openai":
+            if review_result.english_response.startswith("```markdown") and review_result.english_response.endswith("```"): 
+                return review_result.english_response[11:-3].strip()
+            if review_result.chinese_response.startswith("```markdown") and review_result.chinese_response.endswith("```"):
+                return review_result.chinese_response[11:-3].strip()
+        else:
+            if review_result.startswith("```markdown") and review_result.endswith("```"):
+                return review_result[11:-3].strip()
         return review_result
 
-    def review_code(self, diffs_text: str, commits_text: str = "") -> str:
+    def review_code(self, diffs_text: str, commits_text: str = "", project_name: str = "") -> str:
         """Review 代码并返回结果"""
+        prompts = self.prompts["system_message"]
+        if project_name == "BotSharp":
+            prompts = self.prompts["system_message_github"]
         messages = [
-            self.prompts["system_message"],
+            prompts,
             {
                 "role": "user",
                 "content": self.prompts["user_message"]["content"].format(
@@ -99,10 +113,21 @@ class CodeReviewer(BaseReviewer):
         return self.call_llm(messages)
 
     @staticmethod
-    def parse_review_score(review_text: str) -> int:
+    def parse_review_score(review_text) -> int:
         """解析 AI 返回的 Review 结果，返回评分"""
         if not review_text:
             return 0
-        match = re.search(r"总分[:：]\s*(\d+)分?", review_text)
+            
+        # 处理review_text为对象的情况
+        if hasattr(review_text, 'chinese_response'):
+            text_to_parse = review_text.chinese_response
+        else:
+            # 处理review_text为字符串的情况
+            text_to_parse = review_text
+            
+        if not text_to_parse:
+            return 0
+            
+        match = re.search(r"总分[:：]\s*(\d+)分?", text_to_parse)
         return int(match.group(1)) if match else 0
 

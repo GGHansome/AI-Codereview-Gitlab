@@ -16,7 +16,7 @@ class OllamaClient(BaseClient):
         self.client = Client(
             host=self.base_url,
         )
-
+        self.provider = "ollama"
     def _extract_content(self, content: str) -> str:
         """
         从内容中提取<think>...</think>标签之外的部分。

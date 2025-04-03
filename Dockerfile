@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends supervisor && r
 COPY requirements.txt .
 
 # 安装依赖
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
 
 RUN mkdir -p log data conf
 COPY biz ./biz

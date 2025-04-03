@@ -17,6 +17,7 @@ class DeepSeekClient(BaseClient):
 
         self.client = OpenAI(api_key=self.api_key, base_url=self.base_url) # DeepSeek supports OpenAI API SDK
         self.default_model = os.getenv("DEEPSEEK_API_MODEL", "deepseek-chat")
+        self.provider = "deepseek"
 
     def completions(self,
                     messages: List[Dict[str, str]],

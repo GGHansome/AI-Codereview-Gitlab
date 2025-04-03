@@ -204,5 +204,5 @@ if __name__ == '__main__':
     setup_scheduler()
 
     # 启动Flask API服务
-    port = int(os.environ.get('SERVER_PORT', 5001))
+    port = int(os.environ.get('SERVER_PORT', 3001))
     api_app.run(host='0.0.0.0', port=port)

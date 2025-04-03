@@ -15,6 +15,7 @@ class ZhipuAIClient(BaseClient):
 
         self.client = ZhipuAI(api_key=api_key)
         self.default_model = os.getenv("ZHIPUAI_API_MODEL", "GLM-4-Flash")
+        self.provider = "zhipuai"
 
     def completions(self,
                     messages: List[Dict[str, str]],

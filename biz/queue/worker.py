@@ -35,7 +35,7 @@ def handle_push_event(webhook_data: dict, gitlab_token: str, gitlab_url: str, gi
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text, webhook_data['project']['name'])
                 score = CodeReviewer.parse_review_score(review_text=review_result)
             # 将review结果提交到Gitlab的 notes
             handler.add_push_notes(f'Auto Review Result: \n{review_result}')
@@ -92,7 +92,7 @@ def handle_merge_request_event(webhook_data: dict, gitlab_token: str, gitlab_url
 
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text, webhook_data['project']['name'])
 
         # 将review结果提交到Gitlab的 notes
         handler.add_merge_request_notes(f'Auto Review Result: \n{review_result}')
@@ -140,10 +140,10 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
 
             if len(changes) > 0:
                 commits_text = ';'.join(commit.get('message', '').strip() for commit in commits)
-                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+                review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text, webhook_data['repository']['name'])
                 score = CodeReviewer.parse_review_score(review_text=review_result)
             # 将review结果提交到GitHub的 notes
-            handler.add_push_notes(f'Auto Review Result: \n{review_result}')
+            handler.add_push_notes(f'Auto Review Result: \n{review_result.english_response}')
 
         event_manager['push_reviewed'].send(PushReviewEntity(
             project_name=webhook_data['repository']['name'],
@@ -152,7 +152,7 @@ def handle_github_push_event(webhook_data: dict, github_token: str, github_url: 
             updated_at=int(datetime.now().timestamp()),  # 当前时间
             commits=commits,
             score=score,
-            review_result=review_result,
+            review_result=review_result.chinese_response,
             url_slug=github_url_slug,
         ))
 
@@ -197,10 +197,10 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
 
         # review 代码
         commits_text = ';'.join(commit['title'] for commit in commits)
-        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text)
+        review_result = CodeReviewer().review_and_strip_code(str(changes), commits_text, webhook_data['repository']['name'])
 
         # 将review结果提交到GitHub的 notes
-        handler.add_pull_request_notes(f'Auto Review Result: \n{review_result}')
+        handler.add_pull_request_notes(f'Auto Review Result: \n{review_result.english_response}')
 
         # dispatch pull_request_reviewed event
         event_manager['merge_request_reviewed'].send(
@@ -213,7 +213,7 @@ def handle_github_pull_request_event(webhook_data: dict, github_token: str, gith
                 commits=commits,
                 score=CodeReviewer.parse_review_score(review_text=review_result),
                 url=webhook_data['pull_request']['html_url'],
-                review_result=review_result,
+                review_result=review_result.chinese_response,
                 url_slug=github_url_slug
             ))
 
